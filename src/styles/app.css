@@ -77,7 +77,12 @@ select {
   color: #8e98a8;
   text-align: left;
   padding: 10px;
-  cursor: default;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  border-color: rgba(58, 168, 255, 0.2);
+  color: #c8d3e2;
 }
 
 .menu-item.active {

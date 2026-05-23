@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Sidebar } from "./components/Sidebar";
+import { Sidebar, type SidebarTab } from "./components/Sidebar";
 import { SliderControl } from "./components/SliderControl";
 import { ToggleField } from "./components/ToggleField";
 import { SelectField } from "./components/SelectField";
@@ -64,6 +64,7 @@ export default function App(): JSX.Element {
   const [activeJobId, setActiveJobId] = useState("");
   const [isRendering, setIsRendering] = useState(false);
   const [progressLine, setProgressLine] = useState("Idle");
+  const [activeTab, setActiveTab] = useState<SidebarTab>("loadedVideo");
 
   useEffect(() => {
     let unsubLog: () => void = () => {};
@@ -278,67 +279,89 @@ export default function App(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <Sidebar title="Меню" />
+      <Sidebar title="Меню" activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="content-grid">
         <section className="left-column">
-          <SectionCard title="Файлы">
-            <div className="row gap-8 wrap">
-              <button type="button" className="primary" onClick={selectSource}>
-                Загрузить видео
-              </button>
-              <button type="button" className="secondary" onClick={selectOutput}>
-                Папка результата
-              </button>
-              <button type="button" className="secondary" onClick={openOutputFolder} disabled={!outputDir}>
-                Открыть папку результата
-              </button>
-            </div>
-            <p className="path-text">Источник: {sourcePath || "не выбран"}</p>
-            <p className="path-text">Вывод: {outputDir || "не выбран"}</p>
-          </SectionCard>
+          {activeTab === "loadedVideo" ? (
+            <SectionCard title="Файлы">
+              <div className="row gap-8 wrap">
+                <button type="button" className="primary" onClick={selectSource}>
+                  Загрузить видео
+                </button>
+                <button type="button" className="secondary" onClick={selectOutput}>
+                  Папка результата
+                </button>
+                <button type="button" className="secondary" onClick={openOutputFolder} disabled={!outputDir}>
+                  Открыть папку результата
+                </button>
+              </div>
+              <p className="path-text">Источник: {sourcePath || "не выбран"}</p>
+              <p className="path-text">Вывод: {outputDir || "не выбран"}</p>
+            </SectionCard>
+          ) : null}
 
-          <SliderControl label="Яркость" value={brightness} min={-0.5} max={0.5} step={0.01} onChange={setBrightness} />
-          <SliderControl label="Контраст" value={contrast} min={0.5} max={2} step={0.01} onChange={setContrast} />
-          <SliderControl label="Насыщенность" value={saturation} min={0} max={2} step={0.01} onChange={setSaturation} />
-          <SliderControl label="Громкость" value={volume} min={0} max={2.5} step={0.01} onChange={setVolume} />
+          {activeTab === "videoParameters" ? (
+            <>
+              <SliderControl label="Яркость" value={brightness} min={-0.5} max={0.5} step={0.01} onChange={setBrightness} />
+              <SliderControl label="Контраст" value={contrast} min={0.5} max={2} step={0.01} onChange={setContrast} />
+              <SliderControl label="Насыщенность" value={saturation} min={0} max={2} step={0.01} onChange={setSaturation} />
+              <SliderControl label="Громкость" value={volume} min={0} max={2.5} step={0.01} onChange={setVolume} />
+            </>
+          ) : null}
 
-          <SectionCard title="Пакетный рендер">
-            <label className="select-field">
-              <span>Кол-во вариантов</span>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                value={count}
-                onChange={(event) => setCount(Number.parseInt(event.target.value, 10) || 1)}
+          {activeTab === "videoEffects" ? (
+            <SectionCard title="Видеоэффекты">
+              <ToggleField label="Grid overlay" checked={gridOverlay} onChange={setGridOverlay} />
+              <SliderControl label="Fade In (сек)" value={fadeInSec} min={0} max={5} step={0.1} onChange={setFadeInSec} />
+              <SliderControl label="Fade Out (сек)" value={fadeOutSec} min={0} max={5} step={0.1} onChange={setFadeOutSec} />
+            </SectionCard>
+          ) : null}
+
+          {activeTab === "metadata" ? (
+            <SectionCard title="Метаданные">
+              <ToggleField label="Очистить метаданные" checked={cleanMetadata} onChange={setCleanMetadata} />
+              <p className="path-text">Для каждого рендера создаётся JSON sidecar с параметрами и SHA256.</p>
+            </SectionCard>
+          ) : null}
+
+          {activeTab === "performance" ? (
+            <SectionCard title="Производительность">
+              <SelectField
+                label="GPU/CPU encoder"
+                value={encoder}
+                options={encoderOptions}
+                onChange={(value) => setEncoder(value as GpuEncoder)}
               />
-            </label>
-            <SliderControl label="Разброс яркости" value={brightnessJitter} min={0} max={0.4} step={0.01} onChange={setBrightnessJitter} />
-            <SliderControl label="Разброс контраста" value={contrastJitter} min={0} max={0.6} step={0.01} onChange={setContrastJitter} />
-            <SliderControl
-              label="Разброс насыщенности"
-              value={saturationJitter}
-              min={0}
-              max={0.6}
-              step={0.01}
-              onChange={setSaturationJitter}
-            />
-            <SliderControl label="Разброс громкости" value={volumeJitter} min={0} max={0.6} step={0.01} onChange={setVolumeJitter} />
-          </SectionCard>
+              <p className="path-text">Если GPU-кодек недоступен в ffmpeg, рендер завершится ошибкой для варианта.</p>
+            </SectionCard>
+          ) : null}
 
-          <SectionCard title="Эффекты и экспорт">
-            <ToggleField label="Grid overlay" checked={gridOverlay} onChange={setGridOverlay} />
-            <SliderControl label="Fade In (сек)" value={fadeInSec} min={0} max={5} step={0.1} onChange={setFadeInSec} />
-            <SliderControl label="Fade Out (сек)" value={fadeOutSec} min={0} max={5} step={0.1} onChange={setFadeOutSec} />
-            <ToggleField label="Очистить метаданные" checked={cleanMetadata} onChange={setCleanMetadata} />
-            <SelectField
-              label="GPU/CPU encoder"
-              value={encoder}
-              options={encoderOptions}
-              onChange={(value) => setEncoder(value as GpuEncoder)}
-            />
-          </SectionCard>
+          {activeTab === "saving" ? (
+            <SectionCard title="Сохранение и Batch">
+              <label className="select-field">
+                <span>Кол-во вариантов</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={count}
+                  onChange={(event) => setCount(Number.parseInt(event.target.value, 10) || 1)}
+                />
+              </label>
+              <SliderControl label="Разброс яркости" value={brightnessJitter} min={0} max={0.4} step={0.01} onChange={setBrightnessJitter} />
+              <SliderControl label="Разброс контраста" value={contrastJitter} min={0} max={0.6} step={0.01} onChange={setContrastJitter} />
+              <SliderControl
+                label="Разброс насыщенности"
+                value={saturationJitter}
+                min={0}
+                max={0.6}
+                step={0.01}
+                onChange={setSaturationJitter}
+              />
+              <SliderControl label="Разброс громкости" value={volumeJitter} min={0} max={0.6} step={0.01} onChange={setVolumeJitter} />
+            </SectionCard>
+          ) : null}
         </section>
 
         <section className="right-column">
