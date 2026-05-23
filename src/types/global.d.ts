@@ -1,4 +1,4 @@
-import type { RenderLogEvent } from "../../electron/preload";
+import type { RenderLogEvent, ToolStatus } from "../../electron/preload";
 import type { AppSettings, RenderProgressEvent, RenderResult, RenderSettings, VideoProbeData } from "./index";
 
 declare global {
@@ -12,6 +12,7 @@ declare global {
       cancelRender: (jobId: string) => Promise<{ cancelled: boolean; message: string }>;
       openFolder: (folderPath: string) => Promise<boolean>;
       getSettings: () => Promise<AppSettings>;
+      getToolStatus: () => Promise<ToolStatus>;
       onRenderLog: (cb: (event: RenderLogEvent) => void) => () => void;
       onRenderProgress: (cb: (event: RenderProgressEvent) => void) => () => void;
       onRenderComplete: (cb: (event: RenderResult) => void) => () => void;

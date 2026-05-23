@@ -6,6 +6,11 @@ export interface RenderLogEvent {
   line: string;
 }
 
+export interface ToolStatus {
+  ffmpeg: boolean;
+  ffprobe: boolean;
+}
+
 const api = {
   selectVideo: (): Promise<string | null> => ipcRenderer.invoke("dialog:selectVideo"),
   selectOutputFolder: (): Promise<string | null> => ipcRenderer.invoke("dialog:selectOutput"),
@@ -15,6 +20,7 @@ const api = {
   cancelRender: (jobId: string): Promise<{ cancelled: boolean; message: string }> => ipcRenderer.invoke("render:cancel", jobId),
   openFolder: (folderPath: string): Promise<boolean> => ipcRenderer.invoke("shell:openFolder", folderPath),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke("settings:get"),
+  getToolStatus: (): Promise<ToolStatus> => ipcRenderer.invoke("tools:status"),
   onRenderLog: (cb: (event: RenderLogEvent) => void): (() => void) => {
     const handler = (_: Electron.IpcRendererEvent, payload: RenderLogEvent) => cb(payload);
     ipcRenderer.on("render:log", handler);

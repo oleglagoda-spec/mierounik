@@ -1,8 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 import { buildPreviewArgs, buildRenderArgs } from "../src/lib/ffmpeg/commandBuilder.js";
 import { buildVariants } from "../src/lib/ffmpeg/randomGenerator.js";
 import { probeVideo } from "../src/lib/ffmpeg/ffprobeRunner.js";
@@ -18,6 +19,19 @@ let queue: JobQueue;
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.join(currentDir, "preload.js");
 const rendererHtmlPath = path.resolve(currentDir, "../../dist/index.html");
+const localMediaScheme = "local-media";
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: localMediaScheme,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true
+    }
+  }
+]);
 
 interface JobState {
   jobId: string;
@@ -68,7 +82,33 @@ function createWindow(): void {
   void mainWindow.loadFile(rendererHtmlPath);
 }
 
+function decodeLocalMediaPath(requestUrl: string): string {
+  const url = new URL(requestUrl);
+  const decodedPath = decodeURIComponent(url.pathname);
+  if (process.platform === "win32") {
+    return decodedPath.replace(/^\/([A-Za-z]:)/, "$1").replace(/\//g, "\\");
+  }
+  return decodedPath;
+}
+
+function getToolStatus(): { ffmpeg: boolean; ffprobe: boolean } {
+  const ffmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" });
+  const ffprobe = spawnSync("ffprobe", ["-version"], { stdio: "ignore" });
+  return {
+    ffmpeg: !ffmpeg.error && ffmpeg.status === 0,
+    ffprobe: !ffprobe.error && ffprobe.status === 0
+  };
+}
+
+function assertToolingAvailable(): void {
+  const status = getToolStatus();
+  if (!status.ffmpeg || !status.ffprobe) {
+    throw new Error("ffmpeg/ffprobe not found in PATH. Install them and restart the app.");
+  }
+}
+
 async function createPreview(settings: RenderSettings): Promise<string> {
+  assertToolingAvailable();
   const probe = await probeVideo(settings.sourcePath);
   const output = path.join(app.getPath("temp"), `preview_${Date.now()}.mp4`);
   const args = buildPreviewArgs({
@@ -122,6 +162,7 @@ function ensureNotBusy(): void {
 }
 
 async function runBatch(settings: RenderSettings): Promise<{ jobId: string }> {
+  assertToolingAvailable();
   ensureNotBusy();
 
   if (!settings.sourcePath || !settings.outputDir) {
@@ -291,6 +332,11 @@ function cancelRender(jobId: string): { cancelled: boolean; message: string } {
 }
 
 app.whenReady().then(async () => {
+  protocol.handle(localMediaScheme, (request) => {
+    const localPath = decodeLocalMediaPath(request.url);
+    return net.fetch(pathToFileURL(localPath).toString());
+  });
+
   settingsStore = SettingsStore.fromDir(app.getPath("userData"));
   queue = createQueue();
   createWindow();
@@ -327,6 +373,7 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("probe:video", async (_event, sourcePath: string) => probeVideo(sourcePath));
+  ipcMain.handle("tools:status", async () => getToolStatus());
 
   ipcMain.handle("preview:create", async (_event, settings: RenderSettings) => createPreview(settings));
 

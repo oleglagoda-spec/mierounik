@@ -69,6 +69,7 @@ export default function App(): JSX.Element {
   const [isRendering, setIsRendering] = useState(false);
   const [progressLine, setProgressLine] = useState("Idle");
   const [activeTab, setActiveTab] = useState<SidebarTab>("loadedVideo");
+  const [toolStatus, setToolStatus] = useState<{ ffmpeg: boolean; ffprobe: boolean } | null>(null);
 
   useEffect(() => {
     let unsubLog: () => void = () => {};
@@ -91,6 +92,20 @@ export default function App(): JSX.Element {
       .catch((e: unknown) => {
         const message = e instanceof Error ? e.message : String(e);
         setLogs((prev) => addLogLine(prev, `Settings load warning: ${message}`));
+      });
+
+    void studioApi
+      .getToolStatus()
+      .then((status) => {
+        setToolStatus(status);
+        if (!status.ffmpeg || !status.ffprobe) {
+          setLogs((prev) => addLogLine(prev, "ffmpeg/ffprobe not found in PATH"));
+          setError("ffmpeg/ffprobe не найдены. Установите их и перезапустите приложение.");
+        }
+      })
+      .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : String(e);
+        setLogs((prev) => addLogLine(prev, `Tool status check failed: ${message}`));
       });
 
     unsubLog = studioApi.onRenderLog((event) => {
@@ -195,12 +210,17 @@ export default function App(): JSX.Element {
     ]
   );
 
-  const canRender = Boolean(sourcePath && outputDir && !isRendering && studioApi);
+  const toolsReady = Boolean(toolStatus?.ffmpeg && toolStatus?.ffprobe);
+  const canRender = Boolean(sourcePath && outputDir && !isRendering && studioApi && toolsReady);
 
   const selectSource = async (): Promise<void> => {
     setError("");
     if (!studioApi) {
       setError("Bridge API not initialized");
+      return;
+    }
+    if (!toolsReady) {
+      setError("Нужны ffmpeg и ffprobe в PATH");
       return;
     }
     try {
@@ -219,6 +239,10 @@ export default function App(): JSX.Element {
     setError("");
     if (!studioApi) {
       setError("Bridge API not initialized");
+      return;
+    }
+    if (!toolsReady) {
+      setError("Нужны ffmpeg и ffprobe в PATH");
       return;
     }
     try {
@@ -414,7 +438,7 @@ export default function App(): JSX.Element {
           <section className="card section-card">
             <h3>Управление задачей</h3>
             <div className="row gap-8 wrap">
-              <button type="button" className="secondary" onClick={createPreview} disabled={!sourcePath}>
+              <button type="button" className="secondary" onClick={createPreview} disabled={!sourcePath || !toolsReady}>
                 Preview 5 секунд
               </button>
               <button type="button" className="primary" onClick={startRender} disabled={!canRender}>
@@ -425,6 +449,9 @@ export default function App(): JSX.Element {
               </button>
             </div>
             <p className="status-line">{progressLine}</p>
+            {toolStatus && !toolsReady ? (
+              <p className="error-line">ffmpeg/ffprobe не найдены в PATH. Preview и Batch render недоступны.</p>
+            ) : null}
             {error ? <p className="error-line">Ошибка: {error}</p> : null}
           </section>
 

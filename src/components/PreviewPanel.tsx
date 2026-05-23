@@ -10,7 +10,8 @@ interface PreviewPanelProps {
 function toFileUrl(filePath: string): string {
   if (!filePath) return "";
   const normalized = filePath.replace(/\\/g, "/");
-  return encodeURI(`file://${normalized}`);
+  const safePath = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  return `local-media://local${encodeURI(safePath)}`;
 }
 
 export function PreviewPanel({ sourcePath, previewPath, probe }: PreviewPanelProps): JSX.Element {
