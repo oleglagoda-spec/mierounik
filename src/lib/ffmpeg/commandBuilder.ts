@@ -121,7 +121,7 @@ function buildFilters(adjustments: CoreAdjustments, effects: ExtendedEffects, du
     vfParts.push(`fade=t=out:st=${toFixed(durationSec - effects.fadeOutSec)}:d=${toFixed(effects.fadeOutSec)}`);
   }
 
-  afParts.push(`volume=${toFixed(adjustments.volume)}`);
+  afParts.push(`volume=${toFixed(adjustments.volume)}dB`);
 
   if (effects.fadeInSec > 0) {
     afParts.push(`afade=t=in:st=0:d=${toFixed(effects.fadeInSec)}`);

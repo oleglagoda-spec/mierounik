@@ -7,6 +7,11 @@ export interface CoreAdjustments {
   volume: number;
 }
 
+export interface AdjustmentRange {
+  min: number;
+  max: number;
+}
+
 export interface ExtendedEffects {
   gridOverlay: boolean;
   fadeInSec: number;
@@ -17,10 +22,10 @@ export interface ExtendedEffects {
 
 export interface VariantGenerationSettings {
   count: number;
-  brightnessJitter: number;
-  contrastJitter: number;
-  saturationJitter: number;
-  volumeJitter: number;
+  brightnessRange: AdjustmentRange;
+  contrastRange: AdjustmentRange;
+  saturationRange: AdjustmentRange;
+  volumeRange: AdjustmentRange;
 }
 
 export interface RenderSettings {

@@ -1,23 +1,30 @@
 import crypto from "node:crypto";
-import type { CoreAdjustments, RenderSettings, RenderVariant } from "../../types/index.js";
+import type { AdjustmentRange, CoreAdjustments, RenderSettings, RenderVariant } from "../../types/index.js";
 import { makeOutputPath } from "./commandBuilder.js";
+
+function normalizeRange(range: AdjustmentRange): AdjustmentRange {
+  if (range.min <= range.max) {
+    return range;
+  }
+  return { min: range.max, max: range.min };
+}
+
+function randomInRange(range: AdjustmentRange): number {
+  const normalized = normalizeRange(range);
+  const span = normalized.max - normalized.min;
+  return normalized.min + Math.random() * span;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function withJitter(base: number, jitter: number): number {
-  if (jitter <= 0) return base;
-  const rand = (Math.random() * 2 - 1) * jitter;
-  return base + rand;
-}
-
-function makeVariantAdjustments(base: CoreAdjustments, settings: RenderSettings): CoreAdjustments {
+function makeVariantAdjustments(settings: RenderSettings): CoreAdjustments {
   return {
-    brightness: clamp(withJitter(base.brightness, settings.variants.brightnessJitter), -1, 1),
-    contrast: clamp(withJitter(base.contrast, settings.variants.contrastJitter), 0.1, 3),
-    saturation: clamp(withJitter(base.saturation, settings.variants.saturationJitter), 0, 3),
-    volume: clamp(withJitter(base.volume, settings.variants.volumeJitter), 0, 4)
+    brightness: clamp(randomInRange(settings.variants.brightnessRange), -1, 1),
+    contrast: clamp(randomInRange(settings.variants.contrastRange), 0.1, 3),
+    saturation: clamp(randomInRange(settings.variants.saturationRange), 0, 3),
+    volume: clamp(randomInRange(settings.variants.volumeRange), -30, 30)
   };
 }
 
@@ -29,7 +36,7 @@ export function buildVariants(settings: RenderSettings): RenderVariant[] {
     variants.push({
       id: crypto.randomUUID(),
       index: i,
-      adjustments: makeVariantAdjustments(settings.adjustments, settings),
+      adjustments: makeVariantAdjustments(settings),
       outputPath,
       sidecarPath: `${outputPath}.json`
     });

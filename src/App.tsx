@@ -6,6 +6,7 @@ import { SelectField } from "./components/SelectField";
 import { LogPanel } from "./components/LogPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { SectionCard } from "./components/SectionCard";
+import { RangePairControl } from "./components/RangePairControl";
 import type { GpuEncoder, RenderProgressEvent, RenderSettings, VideoProbeData } from "./types";
 
 const encoderOptions = [
@@ -31,6 +32,10 @@ function addLogLine(prev: string[], message: string): string[] {
   return [`[${nowText()}] ${message}`, ...prev].slice(0, 600);
 }
 
+function rangeMidpoint(min: number, max: number): number {
+  return (min + max) / 2;
+}
+
 function getStudioApi(): Window["studioApi"] | null {
   return (window as Window & { studioApi?: Window["studioApi"] }).studioApi ?? null;
 }
@@ -42,17 +47,16 @@ export default function App(): JSX.Element {
   const [previewPath, setPreviewPath] = useState("");
   const [probe, setProbe] = useState<VideoProbeData | null>(null);
 
-  const [brightness, setBrightness] = useState(0);
-  const [contrast, setContrast] = useState(1);
-  const [saturation, setSaturation] = useState(1);
-  const [volume, setVolume] = useState(1);
+  const [brightnessMin, setBrightnessMin] = useState(-0.08);
+  const [brightnessMax, setBrightnessMax] = useState(0.08);
+  const [contrastMin, setContrastMin] = useState(0.9);
+  const [contrastMax, setContrastMax] = useState(1.15);
+  const [saturationMin, setSaturationMin] = useState(0.9);
+  const [saturationMax, setSaturationMax] = useState(1.15);
+  const [volumeMinDb, setVolumeMinDb] = useState(-0.87);
+  const [volumeMaxDb, setVolumeMaxDb] = useState(1.05);
 
   const [count, setCount] = useState(5);
-  const [brightnessJitter, setBrightnessJitter] = useState(0.07);
-  const [contrastJitter, setContrastJitter] = useState(0.12);
-  const [saturationJitter, setSaturationJitter] = useState(0.12);
-  const [volumeJitter, setVolumeJitter] = useState(0.08);
-
   const [gridOverlay, setGridOverlay] = useState(false);
   const [fadeInSec, setFadeInSec] = useState(0);
   const [fadeOutSec, setFadeOutSec] = useState(0);
@@ -139,10 +143,10 @@ export default function App(): JSX.Element {
       baseName: baseNameFromPath(sourcePath),
       previewSeconds: 5,
       adjustments: {
-        brightness,
-        contrast,
-        saturation,
-        volume
+        brightness: rangeMidpoint(brightnessMin, brightnessMax),
+        contrast: rangeMidpoint(contrastMin, contrastMax),
+        saturation: rangeMidpoint(saturationMin, saturationMax),
+        volume: rangeMidpoint(volumeMinDb, volumeMaxDb)
       },
       effects: {
         gridOverlay,
@@ -153,29 +157,41 @@ export default function App(): JSX.Element {
       },
       variants: {
         count,
-        brightnessJitter,
-        contrastJitter,
-        saturationJitter,
-        volumeJitter
+        brightnessRange: {
+          min: brightnessMin,
+          max: brightnessMax
+        },
+        contrastRange: {
+          min: contrastMin,
+          max: contrastMax
+        },
+        saturationRange: {
+          min: saturationMin,
+          max: saturationMax
+        },
+        volumeRange: {
+          min: volumeMinDb,
+          max: volumeMaxDb
+        }
       }
     }),
     [
       sourcePath,
       outputDir,
-      brightness,
-      contrast,
-      saturation,
-      volume,
+      brightnessMin,
+      brightnessMax,
+      contrastMin,
+      contrastMax,
+      saturationMin,
+      saturationMax,
+      volumeMinDb,
+      volumeMaxDb,
       gridOverlay,
       fadeInSec,
       fadeOutSec,
       cleanMetadata,
       encoder,
-      count,
-      brightnessJitter,
-      contrastJitter,
-      saturationJitter,
-      volumeJitter
+      count
     ]
   );
 
@@ -303,10 +319,46 @@ export default function App(): JSX.Element {
 
           {activeTab === "videoParameters" ? (
             <>
-              <SliderControl label="Яркость" value={brightness} min={-0.5} max={0.5} step={0.01} onChange={setBrightness} />
-              <SliderControl label="Контраст" value={contrast} min={0.5} max={2} step={0.01} onChange={setContrast} />
-              <SliderControl label="Насыщенность" value={saturation} min={0} max={2} step={0.01} onChange={setSaturation} />
-              <SliderControl label="Громкость" value={volume} min={0} max={2.5} step={0.01} onChange={setVolume} />
+              <RangePairControl
+                label="Яркость"
+                min={-0.5}
+                max={0.5}
+                step={0.01}
+                minValue={brightnessMin}
+                maxValue={brightnessMax}
+                onMinChange={setBrightnessMin}
+                onMaxChange={setBrightnessMax}
+              />
+              <RangePairControl
+                label="Контраст"
+                min={0.5}
+                max={2}
+                step={0.01}
+                minValue={contrastMin}
+                maxValue={contrastMax}
+                onMinChange={setContrastMin}
+                onMaxChange={setContrastMax}
+              />
+              <RangePairControl
+                label="Насыщенность"
+                min={0}
+                max={2}
+                step={0.01}
+                minValue={saturationMin}
+                maxValue={saturationMax}
+                onMinChange={setSaturationMin}
+                onMaxChange={setSaturationMax}
+              />
+              <RangePairControl
+                label="Громкость (dB)"
+                min={-12}
+                max={12}
+                step={0.01}
+                minValue={volumeMinDb}
+                maxValue={volumeMaxDb}
+                onMinChange={setVolumeMinDb}
+                onMaxChange={setVolumeMaxDb}
+              />
             </>
           ) : null}
 
@@ -349,17 +401,9 @@ export default function App(): JSX.Element {
                   onChange={(event) => setCount(Number.parseInt(event.target.value, 10) || 1)}
                 />
               </label>
-              <SliderControl label="Разброс яркости" value={brightnessJitter} min={0} max={0.4} step={0.01} onChange={setBrightnessJitter} />
-              <SliderControl label="Разброс контраста" value={contrastJitter} min={0} max={0.6} step={0.01} onChange={setContrastJitter} />
-              <SliderControl
-                label="Разброс насыщенности"
-                value={saturationJitter}
-                min={0}
-                max={0.6}
-                step={0.01}
-                onChange={setSaturationJitter}
-              />
-              <SliderControl label="Разброс громкости" value={volumeJitter} min={0} max={0.6} step={0.01} onChange={setVolumeJitter} />
+              <p className="path-text">
+                Для каждого варианта софт берёт случайные значения внутри диапазонов из вкладки «Параметры видео».
+              </p>
             </SectionCard>
           ) : null}
         </section>
