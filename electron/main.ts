@@ -27,6 +27,7 @@ protocol.registerSchemesAsPrivileged([
     privileges: {
       standard: true,
       secure: true,
+      stream: true,
       supportFetchAPI: true,
       corsEnabled: true
     }
@@ -84,6 +85,9 @@ function createWindow(): void {
 
 function decodeLocalMediaPath(requestUrl: string): string {
   const url = new URL(requestUrl);
+  if (url.host !== "local") {
+    throw new Error("Unsupported local-media host");
+  }
   const decodedPath = decodeURIComponent(url.pathname);
   if (process.platform === "win32") {
     return decodedPath.replace(/^\/([A-Za-z]:)/, "$1").replace(/\//g, "\\");
@@ -334,7 +338,11 @@ function cancelRender(jobId: string): { cancelled: boolean; message: string } {
 app.whenReady().then(async () => {
   protocol.handle(localMediaScheme, (request) => {
     const localPath = decodeLocalMediaPath(request.url);
-    return net.fetch(pathToFileURL(localPath).toString());
+    return net.fetch(pathToFileURL(localPath).toString(), {
+      method: request.method,
+      headers: request.headers,
+      body: request.body
+    });
   });
 
   settingsStore = SettingsStore.fromDir(app.getPath("userData"));
