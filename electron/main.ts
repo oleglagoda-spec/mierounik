@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { buildPreviewArgs, buildRenderArgs } from "../src/lib/ffmpeg/commandBuilder.js";
 import { buildVariants } from "../src/lib/ffmpeg/randomGenerator.js";
 import { probeVideo } from "../src/lib/ffmpeg/ffprobeRunner.js";
@@ -14,6 +15,9 @@ import type { RenderProgressEvent, RenderResult, RenderSettings } from "../src/t
 let mainWindow: BrowserWindow | null = null;
 let settingsStore: SettingsStore;
 let queue: JobQueue;
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const preloadPath = path.join(currentDir, "preload.js");
+const rendererHtmlPath = path.resolve(currentDir, "../../dist/index.html");
 
 interface JobState {
   jobId: string;
@@ -47,7 +51,7 @@ function createWindow(): void {
     minHeight: 760,
     backgroundColor: "#0f1319",
     webPreferences: {
-      preload: path.join(app.getAppPath(), "dist-electron/electron/preload.js"),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -61,7 +65,7 @@ function createWindow(): void {
     return;
   }
 
-  void mainWindow.loadFile(path.join(app.getAppPath(), "dist/index.html"));
+  void mainWindow.loadFile(rendererHtmlPath);
 }
 
 async function createPreview(settings: RenderSettings): Promise<string> {

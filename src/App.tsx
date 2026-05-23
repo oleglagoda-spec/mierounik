@@ -31,7 +31,12 @@ function addLogLine(prev: string[], message: string): string[] {
   return [`[${nowText()}] ${message}`, ...prev].slice(0, 600);
 }
 
+function getStudioApi(): Window["studioApi"] | null {
+  return (window as Window & { studioApi?: Window["studioApi"] }).studioApi ?? null;
+}
+
 export default function App(): JSX.Element {
+  const studioApi = getStudioApi();
   const [sourcePath, setSourcePath] = useState("");
   const [outputDir, setOutputDir] = useState("");
   const [previewPath, setPreviewPath] = useState("");
@@ -65,7 +70,13 @@ export default function App(): JSX.Element {
     let unsubProgress: () => void = () => {};
     let unsubComplete: () => void = () => {};
 
-    void window.studioApi
+    if (!studioApi) {
+      setError("Bridge API not initialized. Restart app and relaunch dev mode.");
+      setLogs((prev) => addLogLine(prev, "window.studioApi is unavailable"));
+      return () => {};
+    }
+
+    void studioApi
       .getSettings()
       .then((settings) => {
         if (settings.lastSourcePath) setSourcePath(settings.lastSourcePath);
@@ -77,18 +88,18 @@ export default function App(): JSX.Element {
         setLogs((prev) => addLogLine(prev, `Settings load warning: ${message}`));
       });
 
-    unsubLog = window.studioApi.onRenderLog((event) => {
+    unsubLog = studioApi.onRenderLog((event) => {
       if (event.jobId !== "preview" && activeJobId && event.jobId !== activeJobId) return;
       setLogs((prev) => addLogLine(prev, event.line));
     });
 
-    unsubProgress = window.studioApi.onRenderProgress((event: RenderProgressEvent) => {
+    unsubProgress = studioApi.onRenderProgress((event: RenderProgressEvent) => {
       if (activeJobId && event.jobId !== activeJobId) return;
       setProgressLine(`${event.variantIndex}/${event.totalVariants}: ${event.message}`);
       setLogs((prev) => addLogLine(prev, event.message));
     });
 
-    unsubComplete = window.studioApi.onRenderComplete((event) => {
+    unsubComplete = studioApi.onRenderComplete((event) => {
       if (activeJobId && event.jobId !== activeJobId) return;
       setIsRendering(false);
       setProgressLine(
@@ -107,18 +118,18 @@ export default function App(): JSX.Element {
       unsubProgress();
       unsubComplete();
     };
-  }, [activeJobId]);
+  }, [activeJobId, studioApi]);
 
   useEffect(() => {
-    if (!sourcePath) return;
-    void window.studioApi
+    if (!sourcePath || !studioApi) return;
+    void studioApi
       .probeVideo(sourcePath)
       .then((next) => setProbe(next))
       .catch((e: unknown) => {
         const message = e instanceof Error ? e.message : String(e);
         setError(message);
       });
-  }, [sourcePath]);
+  }, [sourcePath, studioApi]);
 
   const renderSettings = useMemo<RenderSettings>(
     () => ({
@@ -167,12 +178,16 @@ export default function App(): JSX.Element {
     ]
   );
 
-  const canRender = Boolean(sourcePath && outputDir && !isRendering);
+  const canRender = Boolean(sourcePath && outputDir && !isRendering && studioApi);
 
   const selectSource = async (): Promise<void> => {
     setError("");
+    if (!studioApi) {
+      setError("Bridge API not initialized");
+      return;
+    }
     try {
-      const selected = await window.studioApi.selectVideo();
+      const selected = await studioApi.selectVideo();
       if (!selected) return;
       setSourcePath(selected);
       setPreviewPath("");
@@ -185,8 +200,12 @@ export default function App(): JSX.Element {
 
   const selectOutput = async (): Promise<void> => {
     setError("");
+    if (!studioApi) {
+      setError("Bridge API not initialized");
+      return;
+    }
     try {
-      const selected = await window.studioApi.selectOutputFolder();
+      const selected = await studioApi.selectOutputFolder();
       if (!selected) return;
       setOutputDir(selected);
       setLogs((prev) => addLogLine(prev, `Output folder: ${selected}`));
@@ -198,9 +217,13 @@ export default function App(): JSX.Element {
 
   const createPreview = async (): Promise<void> => {
     setError("");
+    if (!studioApi) {
+      setError("Bridge API not initialized");
+      return;
+    }
     try {
       setLogs((prev) => addLogLine(prev, "Generating 5-second preview..."));
-      const preview = await window.studioApi.createPreview(renderSettings);
+      const preview = await studioApi.createPreview(renderSettings);
       setPreviewPath(preview);
       setLogs((prev) => addLogLine(prev, `Preview ready: ${preview}`));
     } catch (e) {
@@ -212,9 +235,13 @@ export default function App(): JSX.Element {
 
   const startRender = async (): Promise<void> => {
     setError("");
+    if (!studioApi) {
+      setError("Bridge API not initialized");
+      return;
+    }
     try {
       setLogs((prev) => addLogLine(prev, `Starting batch render (${count} variants)...`));
-      const result = await window.studioApi.startRender(renderSettings);
+      const result = await studioApi.startRender(renderSettings);
       setActiveJobId(result.jobId);
       setIsRendering(true);
       setProgressLine(`0/${count}: queued`);
@@ -227,9 +254,9 @@ export default function App(): JSX.Element {
   };
 
   const cancelRender = async (): Promise<void> => {
-    if (!activeJobId) return;
+    if (!activeJobId || !studioApi) return;
     try {
-      await window.studioApi.cancelRender(activeJobId);
+      await studioApi.cancelRender(activeJobId);
       setIsRendering(false);
       setProgressLine("Cancellation requested");
       setLogs((prev) => addLogLine(prev, "Cancellation requested by user"));
@@ -240,9 +267,9 @@ export default function App(): JSX.Element {
   };
 
   const openOutputFolder = async (): Promise<void> => {
-    if (!outputDir) return;
+    if (!outputDir || !studioApi) return;
     try {
-      await window.studioApi.openFolder(outputDir);
+      await studioApi.openFolder(outputDir);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
