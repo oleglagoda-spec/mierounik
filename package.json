@@ -2,17 +2,18 @@
   "name": "legal-creative-ab-test-studio",
   "version": "0.1.0",
   "description": "Electron desktop app for legal A/B test creative preparation",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
     "dev:main": "tsc -p tsconfig.electron.json --watch",
-    "dev:electron": "wait-on tcp:5173 dist-electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron dist-electron/main.js",
+    "dev:electron": "wait-on tcp:5173 dist-electron/electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron dist-electron/electron/main.js",
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.electron.json",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "dist": "npm run build && electron-builder --publish never"
   },
   "keywords": [
     "electron",
@@ -34,8 +35,36 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "electron": "^35.2.0",
+    "electron-builder": "^24.13.3",
     "typescript": "^5.8.2",
     "vite": "^6.2.0",
     "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.codex.creativeabstudio",
+    "productName": "Creative A/B Test Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   }
 }
