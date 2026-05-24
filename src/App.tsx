@@ -36,6 +36,17 @@ function rangeMidpoint(min: number, max: number): number {
   return (min + max) / 2;
 }
 
+function parseOptionalSeed(seedInput: string): number | null {
+  if (!seedInput.trim()) {
+    return null;
+  }
+  const parsed = Number.parseInt(seedInput, 10);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.max(1, Math.min(0x7fffffff, parsed));
+}
+
 function getStudioApi(): Window["studioApi"] | null {
   return (window as Window & { studioApi?: Window["studioApi"] }).studioApi ?? null;
 }
@@ -55,6 +66,9 @@ export default function App(): JSX.Element {
   const [saturationMax, setSaturationMax] = useState(1.15);
   const [volumeMinDb, setVolumeMinDb] = useState(-0.87);
   const [volumeMaxDb, setVolumeMaxDb] = useState(1.05);
+  const [bitrateMinKbps, setBitrateMinKbps] = useState(2600);
+  const [bitrateMaxKbps, setBitrateMaxKbps] = useState(4200);
+  const [seedInput, setSeedInput] = useState("");
 
   const [count, setCount] = useState(5);
   const [gridOverlay, setGridOverlay] = useState(false);
@@ -172,6 +186,7 @@ export default function App(): JSX.Element {
       },
       variants: {
         count,
+        seed: parseOptionalSeed(seedInput),
         brightnessRange: {
           min: brightnessMin,
           max: brightnessMax
@@ -187,6 +202,10 @@ export default function App(): JSX.Element {
         volumeRange: {
           min: volumeMinDb,
           max: volumeMaxDb
+        },
+        bitrateRange: {
+          min: bitrateMinKbps,
+          max: bitrateMaxKbps
         }
       }
     }),
@@ -201,6 +220,9 @@ export default function App(): JSX.Element {
       saturationMax,
       volumeMinDb,
       volumeMaxDb,
+      bitrateMinKbps,
+      bitrateMaxKbps,
+      seedInput,
       gridOverlay,
       fadeInSec,
       fadeOutSec,
@@ -425,8 +447,30 @@ export default function App(): JSX.Element {
                   onChange={(event) => setCount(Number.parseInt(event.target.value, 10) || 1)}
                 />
               </label>
+              <label className="select-field">
+                <span>Seed (пусто = авто)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={2147483647}
+                  value={seedInput}
+                  onChange={(event) => setSeedInput(event.target.value)}
+                  placeholder="например 20260524"
+                />
+              </label>
+              <RangePairControl
+                label="Video bitrate (kbps)"
+                min={300}
+                max={12000}
+                step={50}
+                minValue={bitrateMinKbps}
+                maxValue={bitrateMaxKbps}
+                onMinChange={(value) => setBitrateMinKbps(Math.round(value))}
+                onMaxChange={(value) => setBitrateMaxKbps(Math.round(value))}
+                formatter={(value) => `${Math.round(value)}`}
+              />
               <p className="path-text">
-                Для каждого варианта софт берёт случайные значения внутри диапазонов из вкладки «Параметры видео».
+                Для каждого варианта софт берёт случайные значения внутри диапазонов и сохраняет «цифровой паспорт» в sidecar JSON.
               </p>
             </SectionCard>
           ) : null}

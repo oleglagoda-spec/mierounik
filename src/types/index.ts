@@ -22,10 +22,12 @@ export interface ExtendedEffects {
 
 export interface VariantGenerationSettings {
   count: number;
+  seed: number | null;
   brightnessRange: AdjustmentRange;
   contrastRange: AdjustmentRange;
   saturationRange: AdjustmentRange;
   volumeRange: AdjustmentRange;
+  bitrateRange: AdjustmentRange;
 }
 
 export interface RenderSettings {
@@ -51,6 +53,8 @@ export interface RenderVariant {
   id: string;
   index: number;
   adjustments: CoreAdjustments;
+  bitrateKbps: number;
+  blueprintSeed: number;
   outputPath: string;
   sidecarPath: string;
 }

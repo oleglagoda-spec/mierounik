@@ -11,7 +11,7 @@ import { runFfmpegWithLogs } from "../src/lib/ffmpeg/ffmpegRunner.js";
 import { JobQueue } from "../src/lib/jobs/jobQueue.js";
 import { SettingsStore } from "../src/lib/settings/store.js";
 import { sha256File } from "../src/lib/hash/sha256.js";
-import type { CoreAdjustments, RenderProgressEvent, RenderResult, RenderSettings } from "../src/types/index.js";
+import type { RenderProgressEvent, RenderResult, RenderSettings, RenderVariant } from "../src/types/index.js";
 
 let mainWindow: BrowserWindow | null = null;
 let settingsStore: SettingsStore;
@@ -141,19 +141,21 @@ function createQueue(): JobQueue {
 function createSidecarPayload(
   settings: RenderSettings,
   hash: string,
-  outputPath: string,
-  variantIndex: number,
-  adjustments: CoreAdjustments
+  variant: RenderVariant
 ) {
   return {
     purpose: "A/B test creative preparation",
     generatedAt: new Date().toISOString(),
-    variantIndex,
+    variantIndex: variant.index,
+    variantId: variant.id,
+    blueprintSeed: variant.blueprintSeed,
     sourcePath: settings.sourcePath,
-    outputPath,
+    outputPath: variant.outputPath,
     encoder: settings.effects.encoder,
     cleanMetadata: settings.effects.cleanMetadata,
-    adjustments,
+    adjustments: variant.adjustments,
+    bitrateKbps: variant.bitrateKbps,
+    inputRanges: settings.variants,
     sha256: hash
   };
 }
@@ -256,13 +258,7 @@ async function runBatch(settings: RenderSettings): Promise<{ jobId: string }> {
           }
 
           const hash = await sha256File(variant.outputPath);
-          const sidecarPayload = createSidecarPayload(
-            settings,
-            hash,
-            variant.outputPath,
-            variant.index,
-            variant.adjustments
-          );
+          const sidecarPayload = createSidecarPayload(settings, hash, variant);
           await fs.writeFile(variant.sidecarPath, JSON.stringify(sidecarPayload, null, 2), "utf-8");
 
           state.finished += 1;
